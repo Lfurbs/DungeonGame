@@ -4,26 +4,19 @@ import math
 
 pygame.init()
 
-# Configurações do mapa (grade)
-
-# Tela cheia
 TELA = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
 LARGURA_TELA, ALTURA_TELA = TELA.get_size()
 
-# Tamanho base da célula (sem zoom)
 TAMANHO_CELULA_BASE = 24
-# Zoom inicial
 zoom = 1.5
 
 pygame.display.set_caption("Labirinto")
 
-# Cores
 COR_PAREDE = (50, 50, 50)
 COR_CAMINHO = (200, 200, 200)
 COR_JOGADOR = (255, 0, 0)
 COR_BOLINHA = (0, 0, 0)
 
-# Labirinto
 labirinto = [
     "#########################################",
     "#      ##################################",
@@ -52,20 +45,11 @@ labirinto = [
     "#########################################"
 ]
 
-
 labirinto = [list(linha) for linha in labirinto]
 ALTURA_MAPA = len(labirinto)
 LARGURA_MAPA = len(labirinto[0])
 
-# Posição do jogador no mundo (em pixels sem zoom)
-jogador_x = 1 * TAMANHO_CELULA_BASE
-jogador_y = 1 * TAMANHO_CELULA_BASE
-velocidade = 2  # pixels por frame (sem zoom)
 tamanho_jogador_base = TAMANHO_CELULA_BASE // 2
-
-# Offset da câmera (em pixels, com zoom)
-offset_x = 0
-offset_y = 0
 
 clock = pygame.time.Clock()
 
@@ -83,110 +67,91 @@ def desenhar_labirinto(offset_x, offset_y, tamanho_celula):
             pygame.draw.rect(TELA, cor, rect)
 
 def desenhar_jogador(x, y, angulo, offset_x, offset_y, tamanho_jogador):
-    # Centro do jogador na tela (posição com zoom e offset)
-    centro_x = x * zoom + TAMANHO_CELULA_BASE * zoom / 2 - offset_x
-    centro_y = y * zoom + TAMANHO_CELULA_BASE * zoom / 2 - offset_y
+    centro_x = x * zoom - offset_x
+    centro_y = y * zoom - offset_y
     metade = tamanho_jogador / 3
-
     pontos = []
-    for dx, dy in [(-1,-1), (1,-1), (1,1), (-1,1)]:
+    for dx, dy in [(-1, -1), (1, -1), (1, 1), (-1, 1)]:
         ox = dx * metade
         oy = dy * metade
         rot_x = ox * math.cos(angulo) - oy * math.sin(angulo)
         rot_y = ox * math.sin(angulo) + oy * math.cos(angulo)
         pontos.append((centro_x + rot_x, centro_y + rot_y))
-
     pygame.draw.polygon(TELA, COR_JOGADOR, pontos)
-
-    # Bolinha frontal
     frente_x = centro_x + math.cos(angulo) * metade * 1.5
     frente_y = centro_y + math.sin(angulo) * metade * 1.5
     pygame.draw.circle(TELA, COR_BOLINHA, (int(frente_x), int(frente_y)), max(1, int(1 * zoom)))
 
-def pode_mover(x, y):
-    margem = (TAMANHO_CELULA_BASE - tamanho_jogador_base) // 2
-    pontos = [
-        (x + margem, y + margem),
-        (x + margem + tamanho_jogador_base - 1, y + margem),
-        (x + margem, y + margem + tamanho_jogador_base - 1),
-        (x + margem + tamanho_jogador_base - 1, y + margem + tamanho_jogador_base - 1),
-    ]
-    for px, py in pontos:
-        col = int(px) // TAMANHO_CELULA_BASE
-        lin = int(py) // TAMANHO_CELULA_BASE
-        if 0 <= lin < ALTURA_MAPA and 0 <= col < LARGURA_MAPA:
-            if labirinto[lin][col] == '#':
-                return False
-        else:
+def pode_mover_celula(cx, cy):
+    return 0 <= cx < LARGURA_MAPA and 0 <= cy < ALTURA_MAPA and labirinto[cy][cx] != '#'
+
+def pode_mover_pixel(px, py, raio):
+    # Testa múltiplos pontos ao redor do centro para evitar passar por cantos
+    # Usa passo menor para um círculo "mais cheio"
+    passos = 8
+    for i in range(passos):
+        angle = 2 * math.pi * i / passos
+        check_x = px + math.cos(angle) * raio
+        check_y = py + math.sin(angle) * raio
+        cx = int(check_x // TAMANHO_CELULA_BASE)
+        cy = int(check_y // TAMANHO_CELULA_BASE)
+        if not pode_mover_celula(cx, cy):
             return False
     return True
 
-try:
-    while True:
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                pygame.quit()
-                sys.exit()
-            elif event.type == pygame.MOUSEWHEEL:
-                zoom += event.y * 0.1
-                zoom = max(0.5, min(3.0, zoom))
+def celula_para_pixel(cx, cy):
+    return cx * TAMANHO_CELULA_BASE, cy * TAMANHO_CELULA_BASE
 
-        # Pega posição do mouse na tela
-        mouse_x, mouse_y = pygame.mouse.get_pos()
+jogador_x, jogador_y = celula_para_pixel(1, 1)
+jogador_x += TAMANHO_CELULA_BASE / 2
+jogador_y += TAMANHO_CELULA_BASE / 2
 
-        # Calcula posição do mouse no mundo, considerando offset e zoom
-        mouse_mundo_x = mouse_x + offset_x
-        mouse_mundo_y = mouse_y + offset_y
+angulo = 0
+VEL_PX_POR_SEG = 100
 
-        # Centro do jogador no mundo (com zoom)
-        centro_jogador_x = jogador_x * zoom + TAMANHO_CELULA_BASE * zoom / 2
-        centro_jogador_y = jogador_y * zoom + TAMANHO_CELULA_BASE * zoom / 2
+while True:
+    delta = clock.tick(60) / 1000
 
-        # Vetor direção do jogador para o mouse no mundo
-        dx = mouse_mundo_x - centro_jogador_x
-        dy = mouse_mundo_y - centro_jogador_y
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            pygame.quit()
+            sys.exit()
 
-        distancia = math.hypot(dx, dy)
-        if distancia != 0:
-            dx /= distancia
-            dy /= distancia
+    teclas = pygame.key.get_pressed()
 
-        # Move jogador ao clicar botão esquerdo
-        distancia_minima = 10  # ajuste esse valor como quiser
-        if pygame.mouse.get_pressed()[0] and distancia > distancia_minima:
-            novo_x = jogador_x + dx * velocidade
-            novo_y = jogador_y + dy * velocidade
-            if pode_mover(novo_x, jogador_y):
-                jogador_x = novo_x
-            if pode_mover(jogador_x, novo_y):
-                jogador_y = novo_y
+    dx = (teclas[pygame.K_d] or teclas[pygame.K_RIGHT]) - (teclas[pygame.K_a] or teclas[pygame.K_LEFT])
+    dy = (teclas[pygame.K_s] or teclas[pygame.K_DOWN]) - (teclas[pygame.K_w] or teclas[pygame.K_UP])
 
-        # Calcula tamanho da célula e jogador com zoom
-        tamanho_celula_zoom = TAMANHO_CELULA_BASE * zoom
-        tamanho_jogador_zoom = tamanho_jogador_base * zoom
+    if dx != 0 or dy != 0:
+        dist = math.hypot(dx, dy)
+        dx /= dist
+        dy /= dist
 
-        # Atualiza offset da câmera para centralizar jogador
-        offset_x = jogador_x * zoom + tamanho_celula_zoom / 2 - LARGURA_TELA / 2
-        offset_y = jogador_y * zoom + tamanho_celula_zoom / 2 - ALTURA_TELA / 2
+        passo_x = dx * VEL_PX_POR_SEG * delta
+        passo_y = dy * VEL_PX_POR_SEG * delta
 
-        # Limita offset para não mostrar fora do mapa
-        max_offset_x = LARGURA_MAPA * tamanho_celula_zoom - LARGURA_TELA
-        max_offset_y = ALTURA_MAPA * tamanho_celula_zoom - ALTURA_TELA
-        offset_x = max(0, min(offset_x, max_offset_x))
-        offset_y = max(0, min(offset_y, max_offset_y))
+        if pode_mover_pixel(jogador_x + passo_x, jogador_y, tamanho_jogador_base * 0.45):
+            jogador_x += passo_x
 
-        # Calcula ângulo para desenhar jogador olhando para o mouse
+        if pode_mover_pixel(jogador_x, jogador_y + passo_y, tamanho_jogador_base * 0.45):
+            jogador_y += passo_y
+
         angulo = math.atan2(dy, dx)
 
-        # Desenho
-        TELA.fill((0,0,0))
-        desenhar_labirinto(offset_x, offset_y, tamanho_celula_zoom)
-        desenhar_jogador(jogador_x, jogador_y, angulo, offset_x, offset_y, tamanho_jogador_zoom)
+    tamanho_celula_zoom = TAMANHO_CELULA_BASE * zoom
+    tamanho_jogador_zoom = tamanho_jogador_base * zoom
 
-        pygame.display.flip()
-        clock.tick(60)
+    offset_x = jogador_x * zoom - LARGURA_TELA / 2
+    offset_y = jogador_y * zoom - ALTURA_TELA / 2
 
-except Exception as e:
-    pygame.quit()
-    print("Ocorreu um erro:", e)
-    sys.exit()
+    max_offset_x = LARGURA_MAPA * tamanho_celula_zoom - LARGURA_TELA
+    max_offset_y = ALTURA_MAPA * tamanho_celula_zoom - ALTURA_TELA
+
+    offset_x = max(0, min(offset_x, max_offset_x))
+    offset_y = max(0, min(offset_y, max_offset_y))
+
+    TELA.fill((0, 0, 0))
+    desenhar_labirinto(offset_x, offset_y, tamanho_celula_zoom)
+    desenhar_jogador(jogador_x, jogador_y, angulo, offset_x, offset_y, tamanho_jogador_zoom)
+
+    pygame.display.flip()
