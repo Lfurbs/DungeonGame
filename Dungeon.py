@@ -1,6 +1,7 @@
 import pygame
 import sys
 import math
+from collections import deque
 
 pygame.init()
 
@@ -15,6 +16,7 @@ pygame.display.set_caption("Labirinto")
 COR_PAREDE = (50, 50, 50)
 COR_CAMINHO = (200, 200, 200)
 COR_JOGADOR = (255, 0, 0)
+COR_INIMIGO = (0, 0, 255)
 COR_BOLINHA = (0, 0, 0)
 
 labirinto = [
@@ -82,12 +84,26 @@ def desenhar_jogador(x, y, angulo, offset_x, offset_y, tamanho_jogador):
     frente_y = centro_y + math.sin(angulo) * metade * 1.5
     pygame.draw.circle(TELA, COR_BOLINHA, (int(frente_x), int(frente_y)), max(1, int(1 * zoom)))
 
+def desenhar_inimigo(x, y, angulo, offset_x, offset_y, tamanho_inimigo):
+    centro_x = x * zoom - offset_x
+    centro_y = y * zoom - offset_y
+    metade = tamanho_inimigo / 3
+    pontos = []
+    for dx, dy in [(-1, -1), (1, -1), (1, 1), (-1, 1)]:
+        ox = dx * metade
+        oy = dy * metade
+        rot_x = ox * math.cos(angulo) - oy * math.sin(angulo)
+        rot_y = ox * math.sin(angulo) + oy * math.cos(angulo)
+        pontos.append((centro_x + rot_x, centro_y + rot_y))
+    pygame.draw.polygon(TELA, COR_INIMIGO, pontos)
+    frente_x = centro_x + math.cos(angulo) * metade * 1.5
+    frente_y = centro_y + math.sin(angulo) * metade * 1.5
+    pygame.draw.circle(TELA, COR_BOLINHA, (int(frente_x), int(frente_y)), max(1, int(1 * zoom)))
+
 def pode_mover_celula(cx, cy):
     return 0 <= cx < LARGURA_MAPA and 0 <= cy < ALTURA_MAPA and labirinto[cy][cx] != '#'
 
 def pode_mover_pixel(px, py, raio):
-    # Testa múltiplos pontos ao redor do centro para evitar passar por cantos
-    # Usa passo menor para um círculo "mais cheio"
     passos = 8
     for i in range(passos):
         angle = 2 * math.pi * i / passos
@@ -102,15 +118,59 @@ def pode_mover_pixel(px, py, raio):
 def celula_para_pixel(cx, cy):
     return cx * TAMANHO_CELULA_BASE, cy * TAMANHO_CELULA_BASE
 
+def pixel_para_celula(px, py):
+    return int(px // TAMANHO_CELULA_BASE), int(py // TAMANHO_CELULA_BASE)
+
+def achar_posicao_inimigo():
+    for y in range(ALTURA_MAPA - 2, 0, -1):
+        for x in range(LARGURA_MAPA - 2, 0, -1):
+            if labirinto[y][x] == ' ':
+                return celula_para_pixel(x, y)
+    return celula_para_pixel(1, 1)
+
+def bfs_caminho(labirinto, inicio, destino):
+    fila = deque([inicio])
+    visitado = set([inicio])
+    pai = {}
+
+    while fila:
+        atual = fila.popleft()
+        if atual == destino:
+            caminho = []
+            while atual != inicio:
+                caminho.append(atual)
+                atual = pai[atual]
+            caminho.reverse()
+            return caminho
+        x, y = atual
+        for nx, ny in [(x+1,y),(x-1,y),(x,y+1),(x,y-1)]:
+            if (0 <= nx < LARGURA_MAPA and 0 <= ny < ALTURA_MAPA and
+                labirinto[ny][nx] != '#' and (nx, ny) not in visitado):
+                visitado.add((nx, ny))
+                pai[(nx, ny)] = atual
+                fila.append((nx, ny))
+    return []
+
 jogador_x, jogador_y = celula_para_pixel(1, 1)
 jogador_x += TAMANHO_CELULA_BASE / 2
 jogador_y += TAMANHO_CELULA_BASE / 2
 
+inimigo_x, inimigo_y = achar_posicao_inimigo()
+inimigo_x += TAMANHO_CELULA_BASE / 2
+inimigo_y += TAMANHO_CELULA_BASE / 2
+
 angulo = 0
-VEL_PX_POR_SEG = 100
+angulo_inimigo = 0
+VEL_PX_POR_SEG = 150
+VEL_INIMIGO_PX_POR_SEG = 100
+
+caminho_inimigo = []
+indice_caminho = 0
+tempo_para_recalcular = 0
 
 while True:
     delta = clock.tick(60) / 1000
+    tempo_para_recalcular -= delta
 
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
@@ -138,6 +198,37 @@ while True:
 
         angulo = math.atan2(dy, dx)
 
+    if tempo_para_recalcular <= 0:
+        inicio_celula = pixel_para_celula(inimigo_x, inimigo_y)
+        destino_celula = pixel_para_celula(jogador_x, jogador_y)
+        caminho_inimigo = bfs_caminho(labirinto, inicio_celula, destino_celula)
+        indice_caminho = 0
+        tempo_para_recalcular = 0.5
+
+    if caminho_inimigo and indice_caminho < len(caminho_inimigo):
+        alvo_celula = caminho_inimigo[indice_caminho]
+        alvo_x = alvo_celula[0] * TAMANHO_CELULA_BASE + TAMANHO_CELULA_BASE / 2
+        alvo_y = alvo_celula[1] * TAMANHO_CELULA_BASE + TAMANHO_CELULA_BASE / 2
+
+        vetor_x = alvo_x - inimigo_x
+        vetor_y = alvo_y - inimigo_y
+        dist = math.hypot(vetor_x, vetor_y)
+
+        if dist < 2:
+            indice_caminho += 1
+        else:
+            dx_inimigo = vetor_x / dist
+            dy_inimigo = vetor_y / dist
+            passo_inimigo_x = dx_inimigo * VEL_INIMIGO_PX_POR_SEG * delta
+            passo_inimigo_y = dy_inimigo * VEL_INIMIGO_PX_POR_SEG * delta
+
+            if pode_mover_pixel(inimigo_x + passo_inimigo_x, inimigo_y, tamanho_jogador_base * 0.45):
+                inimigo_x += passo_inimigo_x
+            if pode_mover_pixel(inimigo_x, inimigo_y + passo_inimigo_y, tamanho_jogador_base * 0.45):
+                inimigo_y += passo_inimigo_y
+
+            angulo_inimigo = math.atan2(dy_inimigo, dx_inimigo)
+
     tamanho_celula_zoom = TAMANHO_CELULA_BASE * zoom
     tamanho_jogador_zoom = tamanho_jogador_base * zoom
 
@@ -153,5 +244,6 @@ while True:
     TELA.fill((0, 0, 0))
     desenhar_labirinto(offset_x, offset_y, tamanho_celula_zoom)
     desenhar_jogador(jogador_x, jogador_y, angulo, offset_x, offset_y, tamanho_jogador_zoom)
+    desenhar_inimigo(inimigo_x, inimigo_y, angulo_inimigo, offset_x, offset_y, tamanho_jogador_zoom)
 
     pygame.display.flip()
