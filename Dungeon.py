@@ -108,8 +108,8 @@ def calcular_cone_de_luz(jogador_x, jogador_y, angulo, offset_x, offset_y, alcan
             raio_x += dx
             raio_y += dy
 
-            mapa_x = int((raio_x + offset_x) // TAMANHO_CELULA_BASE)
-            mapa_y = int((raio_y + offset_y) // TAMANHO_CELULA_BASE)
+            mapa_x = int((raio_x + offset_x) / (TAMANHO_CELULA_BASE * zoom))
+            mapa_y = int((raio_y + offset_y) / (TAMANHO_CELULA_BASE * zoom))
 
             if (0 <= mapa_x < LARGURA_MAPA) and (0 <= mapa_y < ALTURA_MAPA):
                 if labirinto[mapa_y][mapa_x] == '#':
