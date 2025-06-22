@@ -323,6 +323,15 @@ indice_caminho_fuga = 0
 
 angulo_lanterna = 0.0 
 
+# Configurações da lanterna
+tempo_maximo_lanterna = 5  # segundos de uso
+tempo_recarga = 5          # segundos para recarregar
+tempo_restante_lanterna = tempo_maximo_lanterna
+lanterna_ativa = False
+tempo_lanterna_contando = False
+em_recarga = False
+tempo_restante_recarga = 0
+
 #reinicializção/game over▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂
 def reset_game():
     global jogador_x, jogador_y, inimigo_x, inimigo_y, angulo, angulo_inimigo, \
@@ -430,6 +439,8 @@ def atualizar_inimigo_thread():
         
         inimigo_na_luz = is_point_in_polygon(centro_inimigo_mundo, cone_luz_pontos_mundo)
 
+        if not lanterna_ativa:
+            inimigo_na_luz = False
 
 #transição de estados (inimigo)▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂
         if inimigo_na_luz and inimigo_estado != ESTADO_FUGA_LUZ:
@@ -685,19 +696,43 @@ def atualizar_inimigo_thread():
 
         time.sleep(delta_thread)
 
-
 #inicialização do jogo▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂
 thread_inimigo_obj = None
 estado_jogo_atual = ESTADO_JOGANDO
 
 reset_game()
 
-
 #loop principal▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂
 while True:
     delta = clock.tick(60) / 1000
 
+    # Atualiza tempo da lanterna
+    tempo_passado = delta
+
+    if tempo_lanterna_contando:
+        tempo_restante_lanterna -= tempo_passado
+        if tempo_restante_lanterna <= 0:
+            tempo_restante_lanterna = 0
+            lanterna_ativa = False
+            tempo_lanterna_contando = False
+            em_recarga = True
+            tempo_restante_recarga = tempo_recarga
+
+    # Atualiza tempo de recarga
+    if em_recarga:
+        tempo_restante_recarga -= tempo_passado
+        if tempo_restante_recarga <= 0:
+            tempo_restante_recarga = 0
+            em_recarga = False
+            tempo_restante_lanterna = tempo_maximo_lanterna
+
     for event in pygame.event.get():
+        if event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_f:
+                if not em_recarga:
+                    if tempo_restante_lanterna > 0:
+                        lanterna_ativa = not lanterna_ativa
+                        tempo_lanterna_contando = lanterna_ativa
         if event.type == pygame.QUIT:
             if thread_inimigo_obj and thread_inimigo_obj.is_alive():
                 terminar_thread_inimigo = True
@@ -769,6 +804,13 @@ while True:
         offset_x_final = offset_x_base
         offset_y_final = offset_y_base
 
+        # Calcula o ângulo da lanterna em relação ao mouse
+        mouse_x, mouse_y = pygame.mouse.get_pos()
+        angulo_lanterna = math.atan2(
+            (mouse_y + offset_y_final) - jogador_y * zoom,
+            (mouse_x + offset_x_final) - jogador_x * zoom
+        )
+    
 #lógica vibração▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂
         distancia_jogador_inimigo_para_vibracao = math.hypot(jogador_x - inimigo_x, jogador_y - inimigo_y)
 
@@ -799,26 +841,71 @@ while True:
             (mouse_x + offset_x_final) - jogador_x * zoom
         )
 
-        cone = calcular_cone_de_luz(
-            jogador_x, jogador_y, angulo_lanterna, offset_x_final, offset_y_final,
-            alcance=80 * zoom,
-            abertura=math.radians(30),
-            num_rays=80
-        )
+        if lanterna_ativa:
+            cone = calcular_cone_de_luz(
+                jogador_x, jogador_y, angulo_lanterna, offset_x_final, offset_y_final,
+                alcance=80 * zoom,
+                abertura=math.radians(30),
+                num_rays=80
+            )
 
-        centro_x = jogador_x * zoom - offset_x_final
-        centro_y = jogador_y * zoom - offset_y_final
-        raio_luz = 25 * zoom
+            centro_x = jogador_x * zoom - offset_x_final
+            centro_y = jogador_y * zoom - offset_y_final
+            raio_luz = 25 * zoom
 
-        sombra = pygame.Surface((LARGURA_TELA, ALTURA_TELA), pygame.SRCALPHA)
-        sombra.fill((0, 0, 0, 100))
+            sombra = pygame.Surface((LARGURA_TELA, ALTURA_TELA), pygame.SRCALPHA)
+            sombra.fill((0, 0, 0, 180))  # Escurece tudo
 
-        pygame.draw.polygon(sombra, (0, 0, 0, 0), cone)
-        pygame.draw.circle(sombra, (0, 0, 0, 0), (int(centro_x), int(centro_y)), int(raio_luz))
+            pygame.draw.polygon(sombra, (0, 0, 0, 0), cone)  # Fura o cone de luz
+            pygame.draw.circle(sombra, (0, 0, 0, 0), (int(centro_x), int(centro_y)), int(raio_luz))  # Luz em volta do jogador
 
-        TELA.blit(sombra, (0, 0))
+            TELA.blit(sombra, (0, 0))
+        else:
+            # Escurece tudo, exceto ao redor do jogador
+            centro_x = jogador_x * zoom - offset_x_final
+            centro_y = jogador_y * zoom - offset_y_final
+
+            sombra = pygame.Surface((LARGURA_TELA, ALTURA_TELA), pygame.SRCALPHA)
+            sombra.fill((0, 0, 0, 180))
+            pygame.draw.circle(sombra, (0, 0, 0, 0), (int(centro_x), int(centro_y)), int(25 * zoom))
+            TELA.blit(sombra, (0, 0))
+
+        # ----------------------------
+        # Desenhar barra da lanterna
+        # ----------------------------
+        barra_largura = 200
+        barra_altura = 20
+        barra_x = 20
+        barra_y = 20
+
+        # Fundo da barra (cinza escuro)
+        pygame.draw.rect(TELA, (50, 50, 50), (barra_x, barra_y, barra_largura, barra_altura))
+
+        # Preenchimento (amarelo ou laranja se em recarga)
+        if em_recarga:
+            porcentagem = 1 - (tempo_restante_recarga / tempo_recarga)
+            cor_barra = (255, 165, 0)  # laranja
+        else:
+            porcentagem = tempo_restante_lanterna / tempo_maximo_lanterna
+            cor_barra = (255, 255, 0)  # amarelo
+
+        pygame.draw.rect(TELA, cor_barra, (barra_x, barra_y, int(barra_largura * porcentagem), barra_altura))
+
+        # Borda da barra
+        pygame.draw.rect(TELA, (255, 255, 255), (barra_x, barra_y, barra_largura, barra_altura), 2)
+
+        # Texto com tempo restante
+        fonte = pygame.font.Font(None, 24)
+        if em_recarga:
+            texto = f"Recarregando... {tempo_restante_recarga:.1f}s"
+        else:
+            texto = f"Lanterna: {tempo_restante_lanterna:.1f}s"
+
+        render_texto = fonte.render(texto, True, (255, 255, 255))
+        TELA.blit(render_texto, (barra_x, barra_y + barra_altura + 5))
 
     elif estado_jogo_atual == ESTADO_GAME_OVER:
         rect_tentar_novamente, rect_encerrar_jogo = desenhar_game_over()
+
 
     pygame.display.flip()
