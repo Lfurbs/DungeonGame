@@ -84,6 +84,17 @@ for i, row in enumerate(labirinto):
 
 tamanho_jogador_base = TAMANHO_CELULA_BASE // 2
 
+try:
+    player_image = pygame.image.load('sprites/player.png').convert_alpha()
+    monstro_image = pygame.image.load('sprites/monstro.png').convert_alpha()
+except pygame.error as e:
+    print(f"Erro ao carregar imagem: {e}. Certifique-se de que as imagens estão na pasta 'sprites'.")
+    pygame.quit()
+    sys.exit()
+
+player_image = pygame.transform.scale(player_image, (int(tamanho_jogador_base * 3), int(tamanho_jogador_base * 3)))
+monstro_image = pygame.transform.scale(monstro_image, (int(tamanho_jogador_base * 4), int(tamanho_jogador_base * 4)))
+
 clock = pygame.time.Clock()
 
 is_fullscreen = False
@@ -137,38 +148,22 @@ def desenhar_labirinto(offset_x, offset_y, tamanho_celula):
             )
             pygame.draw.rect(TELA, cor, rect)
 
-def desenhar_jogador(x, y, angulo, offset_x, offset_y, tamanho_jogador):
+def desenhar_jogador(x, y, angulo, offset_x, offset_y, tamanho_jogador_img, image):
     centro_x = x * zoom - offset_x
     centro_y = y * zoom - offset_y
-    metade = tamanho_jogador / 3
-    pontos = []
-    for dx, dy in [(-1, -1), (1, -1), (1, 1), (-1, 1)]:
-        ox = dx * metade
-        oy = dy * metade
-        rot_x = ox * math.cos(angulo) - oy * math.sin(angulo)
-        rot_y = ox * math.sin(angulo) + oy * math.cos(angulo)
-        pontos.append((centro_x + rot_x, centro_y + rot_y))
-    pygame.draw.polygon(TELA, COR_JOGADOR, pontos)
+    
+    rotated_image = pygame.transform.rotate(image, -math.degrees(angulo))
+    new_rect = rotated_image.get_rect(center=(int(centro_x), int(centro_y)))
+    
+    TELA.blit(rotated_image, new_rect.topleft)
 
-    frente_x = centro_x + math.cos(angulo) * metade * 1.5
-    frente_y = centro_y + math.sin(angulo) * metade * 1.5
-    pygame.draw.circle(TELA, COR_BOLINHA, (int(frente_x), int(frente_y)), max(1, int(1 * zoom)))
-
-def desenhar_inimigo(x, y, angulo, offset_x, offset_y, tamanho_inimigo):
+def desenhar_inimigo(x, y, angulo, offset_x, offset_y, tamanho_inimigo_img, image):
     centro_x = x * zoom - offset_x
     centro_y = y * zoom - offset_y
-    metade = tamanho_inimigo / 3
-    pontos = []
-    for dx, dy in [(-1, -1), (1, -1), (1, 1), (-1, 1)]:
-        ox = dx * metade
-        oy = dy * metade
-        rot_x = ox * math.cos(angulo) - oy * math.sin(angulo)
-        rot_y = ox * math.sin(angulo) + oy * math.cos(angulo)
-        pontos.append((centro_x + rot_x, centro_y + rot_y))
-    pygame.draw.polygon(TELA, COR_INIMIGO, pontos)
-    frente_x = centro_x + math.cos(angulo) * metade * 1.5
-    frente_y = centro_y + math.sin(angulo) * metade * 1.5
-    pygame.draw.circle(TELA, COR_BOLINHA, (int(frente_x), int(frente_y)), max(1, int(1 * zoom)))
+    
+    rect_original = image.get_rect(center=(int(centro_x), int(centro_y)))
+    
+    TELA.blit(image, rect_original.topleft)
 
 # Colisão/conversão▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂
 def pode_mover_celula(cx, cy):
@@ -324,8 +319,8 @@ indice_caminho_fuga = 0
 angulo_lanterna = 0.0 
 
 # Configurações da lanterna▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂
-tempo_maximo_lanterna = 5  
-tempo_recarga = 5  
+tempo_maximo_lanterna = 5   
+tempo_recarga = 5   
 tempo_restante_lanterna = tempo_maximo_lanterna
 lanterna_ativa = False
 tempo_lanterna_contando = False
@@ -464,7 +459,7 @@ def atualizar_inimigo_thread():
             
             alvo_fuga_x_pixel = inimigo_x + dir_oposta_x_norm * (TAMANHO_CELULA_BASE * distancia_alvo_fuga)
             alvo_fuga_y_pixel = inimigo_y + dir_oposta_y_norm * (TAMANHO_CELULA_BASE * distancia_alvo_fuga)
-    
+        
             alvo_fuga_celula_temp = pixel_para_celula(alvo_fuga_x_pixel, alvo_fuga_y_pixel)
             
             alvo_fuga_celula_temp = (max(0, min(alvo_fuga_celula_temp[0], LARGURA_MAPA - 1)),
@@ -696,7 +691,6 @@ estado_jogo_atual = ESTADO_JOGANDO
 
 reset_game()
 
-# Loop principal▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂
 while True:
     delta = clock.tick(60) / 1000
 
@@ -726,14 +720,6 @@ while True:
                     if tempo_restante_lanterna > 0:
                         lanterna_ativa = not lanterna_ativa
                         tempo_lanterna_contando = lanterna_ativa
-        if event.type == pygame.QUIT:
-            if thread_inimigo_obj and thread_inimigo_obj.is_alive():
-                terminar_thread_inimigo = True
-                thread_inimigo_obj.join()
-            pygame.quit()
-            sys.exit()
-        
-        if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_F11:
                 is_fullscreen = not is_fullscreen
                 if is_fullscreen:
@@ -741,6 +727,13 @@ while True:
                 else:
                     TELA = pygame.display.set_mode((LARGURA_JANELA_INICIAL, ALTURA_JANELA_INICIAL))
                 LARGURA_TELA, ALTURA_TELA = TELA.get_size()
+
+        if event.type == pygame.QUIT:
+            if thread_inimigo_obj and thread_inimigo_obj.is_alive():
+                terminar_thread_inimigo = True
+                thread_inimigo_obj.join()
+            pygame.quit()
+            sys.exit()
         
         if estado_jogo_atual == ESTADO_GAME_OVER:
             if event.type == pygame.MOUSEBUTTONDOWN:
@@ -824,8 +817,8 @@ while True:
 
         TELA.fill((0, 0, 0))
         desenhar_labirinto(offset_x_final, offset_y_final, tamanho_celula_zoom)
-        desenhar_jogador(jogador_x, jogador_y, angulo, offset_x_final, offset_y_final, tamanho_jogador_zoom)
-        desenhar_inimigo(inimigo_x, inimigo_y, angulo_inimigo, offset_x_final, offset_y_final, tamanho_jogador_zoom)
+        desenhar_jogador(jogador_x, jogador_y, angulo, offset_x_final, offset_y_final, tamanho_jogador_zoom, player_image)
+        desenhar_inimigo(inimigo_x, inimigo_y, angulo_inimigo, offset_x_final, offset_y_final, tamanho_jogador_zoom, monstro_image)
 
         mouse_x, mouse_y = pygame.mouse.get_pos()
         angulo_lanterna = math.atan2(
@@ -846,7 +839,7 @@ while True:
             raio_luz = 25 * zoom
 
             sombra = pygame.Surface((LARGURA_TELA, ALTURA_TELA), pygame.SRCALPHA)
-            sombra.fill((0, 0, 0, 252))
+            sombra.fill((0, 0, 0, 180))
 
             pygame.draw.polygon(sombra, (0, 0, 0, 0), cone) 
             pygame.draw.circle(sombra, (0, 0, 0, 0), (int(centro_x), int(centro_y)), int(raio_luz))  
@@ -857,7 +850,7 @@ while True:
             centro_y = jogador_y * zoom - offset_y_final
 
             sombra = pygame.Surface((LARGURA_TELA, ALTURA_TELA), pygame.SRCALPHA)
-            sombra.fill((0, 0, 0, 252))
+            sombra.fill((0, 0, 0, 180))
             pygame.draw.circle(sombra, (0, 0, 0, 0), (int(centro_x), int(centro_y)), int(25 * zoom))
             TELA.blit(sombra, (0, 0))
             
@@ -882,9 +875,9 @@ while True:
 
         fonte = pygame.font.Font(None, 24)
         if em_recarga:
-            texto = f"Recarregando... {tempo_restante_recarga:.1f}s"
+            texto = f"Charging... {tempo_restante_recarga:.1f}s"
         else:
-            texto = f"Lanterna: {tempo_restante_lanterna:.1f}s"
+            texto = f"Lantern: {tempo_restante_lanterna:.1f}s"
 
         render_texto = fonte.render(texto, True, (255, 255, 255))
         TELA.blit(render_texto, (barra_x, barra_y + barra_altura + 5))
