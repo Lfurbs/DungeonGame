@@ -8,8 +8,8 @@ import random
 
 pygame.init()
 
-COR_CHAVE = (255, 255, 0)  # Amarelo
-COR_PORTA = (0, 100, 255)  # Azul
+#COR_CHAVE = (255, 255, 0)  # Amarelo
+#COR_PORTA = (0, 100, 255)  # Azul
 
 LARGURA_JANELA_INICIAL = 800
 ALTURA_JANELA_INICIAL = 600
@@ -18,11 +18,12 @@ TELA = pygame.display.set_mode((LARGURA_JANELA_INICIAL, ALTURA_JANELA_INICIAL))
 LARGURA_TELA, ALTURA_TELA = TELA.get_size()
 
 TAMANHO_CELULA_BASE = 24
-zoom = 1
+zoom = 1  #jogo = 3.6
 
 pygame.display.set_caption("Labirinto")
 
 COR_PAREDE = (50, 50, 50)
+
 COR_CAMINHO = (200, 200, 200)
 COR_JOGADOR = (255, 0, 0)
 COR_INIMIGO = (0, 0, 255)
@@ -35,37 +36,37 @@ labirinto_map = [
     "############################################################",
     "############################################################",
     "############################################################",
-    "############################################################",
-    "##########              #####             ##################",
-    "##      ##        C     #####             ##################",
-    "##      ##              #####             ###########      #",
+    "####################   #####################################",
+    "##########           # C#####            C##################",
+    "##C     ##           ########             ##################",
+    "##      ##              #####             ###########    C #",
     "##      ###    ####   #########   ####   ############      #",
-    "##      ###    ####P  #########   ####   ############      #",
-    "####  #############   #########   ####         ######      #",
+    "##      ###    #####P##########   ####   ############      #",
+    "####  ############## ##########   ####         ######      #",
     "####  #######                        #######   #######  ####",
     "####  #######                        #######   #######  ####",
-    "#                ###############   #########   #######  ####",
+    "#                ###############   ########## ######### ####",
     "#                ###############                        ####",
     "#  #########   ####################                     ####",
-    "#  #########   ##############     ###    ###################",
-    "#  #########   ##############            ###        ########",
-    "#  #                   ######     ###    ###  #     ########",
-    "#  #                              ##########  #     ########",
-    "#  #                   ######                 ##############",
-    "#                      ###########            ##############",
-    "####                   ###########            ##############",
-    "############    ##################            ##############",
-    "#####           ##################            ##############",
+    "#  ##########P###############     ###    ###################",
+    "#  #########   ##############      P     ###        ########",
+    "#P##                   ######     ###    ###  #     ########",
+    "#  #                      P       ##########  #     #####SS#",
+    "#  #                   ######                 #####P#####  #",
+    "#                      ###########            ##### #####  #",
+    "####                   ####C  ####            #####        #",
+    "############    ############ #####            #####        #",
+    "#####           ############                  ##############",
     "#####  #####      ################            ##############",
     "#####  #########  ################                      ####",
-    "#####  #########                                        ####",
+    "#####  #########            P                           ####",
     "###     ########  ######## #######                      ####",
-    "###     ########  ######## #################################",
-    "###     ########           #################################",
-    "################           ##########            ###########",
-    "##################                               ###########",
-    "##################                               ###########",
-    "##################         ##########            ###########",
+    "###     ########  ######## ############################P####",
+    "###     ########           ####C  ###################   ####",
+    "### ############           ###### ###            #### ######",
+    "### ##############                                       ###",
+    "###C##############                               ####### ###",
+    "##################         ##########            ####C   ###",
     "############################################################",
 ]
 labirinto = [list(linha) for linha in labirinto_map]
@@ -87,16 +88,26 @@ for i, row in enumerate(labirinto):
 
 tamanho_jogador_base = TAMANHO_CELULA_BASE // 2
 
+def cortar_transparencia(imagem):
+    rect = imagem.get_bounding_rect()
+    imagem_cortada = imagem.subsurface(rect).copy()
+    return imagem_cortada
+
 try:
     player_image = pygame.image.load('sprites/player.png').convert_alpha()
     monstro_image = pygame.image.load('sprites/monstro.png').convert_alpha()
+    chave_image = pygame.image.load('sprites/chave.png').convert_alpha()
+    porta_image = pygame.image.load('sprites/porta.png').convert_alpha()
+    porta_image = cortar_transparencia(porta_image)
 except pygame.error as e:
     print(f"Erro ao carregar imagem: {e}. Certifique-se de que as imagens estão na pasta 'sprites'.")
     pygame.quit()
     sys.exit()
 
-player_image = pygame.transform.scale(player_image, (int(tamanho_jogador_base * 3), int(tamanho_jogador_base * 3)))
-monstro_image = pygame.transform.scale(monstro_image, (int(tamanho_jogador_base * 4), int(tamanho_jogador_base * 4)))
+player_image = pygame.transform.smoothscale(player_image, (80, 80))     # Personagem
+monstro_image = pygame.transform.smoothscale(monstro_image, (75, 75))   # Inimigo
+chave_image = pygame.transform.smoothscale(chave_image, (60, 60))       # Chave
+porta_image = pygame.transform.smoothscale(porta_image, (85, 85))       # Porta
 
 clock = pygame.time.Clock()
 
@@ -146,10 +157,8 @@ def desenhar_labirinto(offset_x, offset_y, tamanho_celula):
 
             if celula == '#':
                 cor = COR_PAREDE
-            elif celula == 'C':
-                cor = COR_CHAVE
-            elif celula == 'P':
-                cor = COR_PORTA
+            elif celula == 'C' or celula == 'P':
+                cor = COR_CAMINHO  # Para manter o fundo padrão do caminho
             else:
                 cor = COR_CAMINHO
 
@@ -160,6 +169,14 @@ def desenhar_labirinto(offset_x, offset_y, tamanho_celula):
                 tamanho_celula
             )
             pygame.draw.rect(TELA, cor, rect)
+            if celula == 'C':
+                TELA.blit(chave_image, rect)
+            elif celula == 'P':
+                TELA.blit(porta_image, rect)
+            elif celula == 'S':
+                cor = (0, 255, 0)  # Verde ou outra cor para saída
+            else:
+                cor = COR_CAMINHO
 
 def desenhar_jogador(x, y, angulo, offset_x, offset_y, tamanho_jogador_img, image):
     centro_x = x * zoom - offset_x
@@ -299,6 +316,11 @@ def is_point_in_polygon(point, polygon):
 # Variáveis globais▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂
 ESTADO_JOGANDO = 0
 ESTADO_GAME_OVER = 1
+ESTADO_TELA_INICIAL = -1
+ESTADO_VITORIA = 2 
+
+tempo_inicio = None
+tempo_fim = None
 
 terminar_thread_inimigo = False
 jogador_x, jogador_y = 0.0, 0.0 
@@ -343,6 +365,7 @@ angulo_lanterna = 0.0
 quantidade_chaves = 0
 
 
+
 # Configurações da lanterna▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂
 tempo_maximo_lanterna = 5   
 tempo_recarga = 5   
@@ -352,6 +375,7 @@ tempo_lanterna_contando = False
 em_recarga = False
 tempo_restante_recarga = 0
 
+estado_jogo_atual = ESTADO_TELA_INICIAL
 # Reinicializção/game over▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂
 def reset_game():
     global jogador_x, jogador_y, inimigo_x, inimigo_y, angulo, angulo_inimigo, \
@@ -360,8 +384,11 @@ def reset_game():
            tempo_sem_ver_jogador, vibração_ativa, jogador_morto, estado_jogo_atual, \
            terminar_thread_inimigo, tempo_restante_fuga, \
            alvo_fuga_pixel, caminho_fuga, indice_caminho_fuga, \
-           angulo_lanterna
+           angulo_lanterna, tempo_inicio, tempo_fim
 
+    tempo_inicio = time.time()
+    tempo_fim = None
+    
     jogador_x_inicial, jogador_y_inicial = celula_para_pixel(13,8)
     jogador_x = jogador_x_inicial + TAMANHO_CELULA_BASE / 2
     jogador_y = jogador_y_inicial + TAMANHO_CELULA_BASE / 2
@@ -391,6 +418,30 @@ def reset_game():
     indice_caminho_fuga = 0 
     angulo_lanterna = 0.0 
     terminar_thread_inimigo = True
+    
+def desenhar_tela_inicial():
+    fonte_titulo = pygame.font.Font(None, 100)
+    fonte_botao = pygame.font.Font(None, 60)
+
+    TELA.fill((0, 0, 0))
+
+    texto_titulo = fonte_titulo.render("Dungeon Game", True, COR_TEXTO)
+    rect_titulo = texto_titulo.get_rect(center=(LARGURA_TELA // 2, ALTURA_TELA // 2 - 150))
+    TELA.blit(texto_titulo, rect_titulo)
+
+    texto_play = fonte_botao.render("PLAY", True, COR_TEXTO)
+    rect_play = pygame.Rect(0, 0, 250, 80)
+    rect_play.center = (LARGURA_TELA // 2, ALTURA_TELA // 2 + 50)
+
+    mouse_pos = pygame.mouse.get_pos()
+    cor_btn_play = COR_BOTAO_NORMAL
+    if rect_play.collidepoint(mouse_pos):
+        cor_btn_play = COR_BOTAO_HOVER
+
+    pygame.draw.rect(TELA, cor_btn_play, rect_play, border_radius=12)
+    TELA.blit(texto_play, texto_play.get_rect(center=rect_play.center))
+
+    return rect_play
 
 def desenhar_game_over():
     fonte_titulo = pygame.font.Font(None, 80)
@@ -427,6 +478,42 @@ def desenhar_game_over():
     TELA.blit(texto_encerrar_jogo, texto_encerrar_jogo.get_rect(center=rect_encerrar_jogo.center))
 
     return rect_tentar_novamente, rect_encerrar_jogo
+
+def desenhar_vitoria():
+    fonte_titulo = pygame.font.Font(None, 80)
+    fonte_botao = pygame.font.Font(None, 50)
+
+    sombra = pygame.Surface((LARGURA_TELA, ALTURA_TELA), pygame.SRCALPHA)
+    sombra.fill((0, 0, 0, 180))
+    TELA.blit(sombra, (0,0))
+
+    texto_vitoria = fonte_titulo.render("Parabéns!", True, (0, 255, 0))
+    rect_vitoria = texto_vitoria.get_rect(center=(LARGURA_TELA // 2, ALTURA_TELA // 2 - 150))
+    TELA.blit(texto_vitoria, rect_vitoria)
+
+    texto_msg = fonte_botao.render("Você concluiu a Dungeon!", True, COR_TEXTO)
+    rect_msg = texto_msg.get_rect(center=(LARGURA_TELA // 2, ALTURA_TELA // 2 - 80))
+    TELA.blit(texto_msg, rect_msg)
+
+    if tempo_inicio is not None and tempo_fim is not None:
+        tempo_total = tempo_fim - tempo_inicio
+        texto_tempo = fonte_botao.render(f"Tempo: {tempo_total:.2f} segundos", True, COR_TEXTO)
+        rect_tempo = texto_tempo.get_rect(center=(LARGURA_TELA // 2, ALTURA_TELA // 2 - 30))
+        TELA.blit(texto_tempo, rect_tempo)
+
+    texto_voltar_menu = fonte_botao.render("Voltar ao Menu", True, COR_TEXTO)
+    rect_voltar_menu = pygame.Rect(0, 0, 300, 70)
+    rect_voltar_menu.center = (LARGURA_TELA // 2, ALTURA_TELA // 2 + 140)
+
+    mouse_pos = pygame.mouse.get_pos()
+
+    cor_btn_voltar = COR_BOTAO_NORMAL
+    if rect_voltar_menu.collidepoint(mouse_pos):
+        cor_btn_voltar = COR_BOTAO_HOVER
+    pygame.draw.rect(TELA, cor_btn_voltar, rect_voltar_menu, border_radius=10)
+    TELA.blit(texto_voltar_menu, texto_voltar_menu.get_rect(center=rect_voltar_menu.center))
+
+    return None, rect_voltar_menu
 
 def atualizar_inimigo_thread():
     global inimigo_x, inimigo_y, angulo_inimigo, inimigo_estado, caminho_inimigo, \
@@ -712,9 +799,7 @@ def atualizar_inimigo_thread():
 
 # Inicialização do jogo▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂
 thread_inimigo_obj = None
-estado_jogo_atual = ESTADO_JOGANDO
-
-reset_game()
+estado_jogo_atual = ESTADO_TELA_INICIAL
 
 while True:
     delta = clock.tick(60) / 1000
@@ -745,6 +830,7 @@ while True:
                     if tempo_restante_lanterna > 0:
                         lanterna_ativa = not lanterna_ativa
                         tempo_lanterna_contando = lanterna_ativa
+
             if event.key == pygame.K_F11:
                 is_fullscreen = not is_fullscreen
                 if is_fullscreen:
@@ -759,24 +845,37 @@ while True:
                 thread_inimigo_obj.join()
             pygame.quit()
             sys.exit()
-        
-        if estado_jogo_atual == ESTADO_GAME_OVER:
+
+
+        if estado_jogo_atual == ESTADO_TELA_INICIAL:
             if event.type == pygame.MOUSEBUTTONDOWN:
                 mouse_pos = pygame.mouse.get_pos()
-                
+                if rect_play.collidepoint(mouse_pos):
+                    reset_game()
+
+        elif estado_jogo_atual == ESTADO_GAME_OVER:
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                mouse_pos = pygame.mouse.get_pos()
                 if rect_tentar_novamente.collidepoint(mouse_pos):
                     terminar_thread_inimigo = True
                     if thread_inimigo_obj and thread_inimigo_obj.is_alive():
                         thread_inimigo_obj.join()
-
                     reset_game()
-                    
                 elif rect_encerrar_jogo.collidepoint(mouse_pos):
                     if thread_inimigo_obj and thread_inimigo_obj.is_alive():
                         terminar_thread_inimigo = True
                         thread_inimigo_obj.join()
                     pygame.quit()
                     sys.exit()
+
+        elif estado_jogo_atual == ESTADO_VITORIA:
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                mouse_pos = pygame.mouse.get_pos()
+                if rect_reiniciar.collidepoint(mouse_pos):
+                    reset_game()
+                elif rect_voltar_menu.collidepoint(mouse_pos):
+                    estado_jogo_atual = ESTADO_TELA_INICIAL
+
 
     if estado_jogo_atual == ESTADO_JOGANDO:
         if thread_inimigo_obj is None or not thread_inimigo_obj.is_alive():
@@ -819,7 +918,11 @@ while True:
                 if quantidade_chaves > 0:
                     labirinto[celula_jogador_y][celula_jogador_x] = ' '
                     quantidade_chaves -= 1
+                    
 
+            elif labirinto[celula_jogador_y][celula_jogador_x] == 'S':
+                tempo_fim = time.time()
+                estado_jogo_atual = ESTADO_VITORIA
 
         tamanho_celula_zoom = TAMANHO_CELULA_BASE * zoom
         tamanho_jogador_zoom = tamanho_jogador_base * zoom
@@ -859,6 +962,8 @@ while True:
         desenhar_labirinto(offset_x_final, offset_y_final, tamanho_celula_zoom)
         desenhar_jogador(jogador_x, jogador_y, angulo, offset_x_final, offset_y_final, tamanho_jogador_zoom, player_image)
         desenhar_inimigo(inimigo_x, inimigo_y, angulo_inimigo, offset_x_final, offset_y_final, tamanho_jogador_zoom, monstro_image)
+
+
 
         mouse_x, mouse_y = pygame.mouse.get_pos()
         angulo_lanterna = math.atan2(
@@ -928,8 +1033,14 @@ while True:
         TELA.blit(render_chaves, (barra_x, barra_y + barra_altura + 30))
 
 #▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂
+    if estado_jogo_atual == ESTADO_TELA_INICIAL:
+        rect_play = desenhar_tela_inicial()
+
     elif estado_jogo_atual == ESTADO_GAME_OVER:
         rect_tentar_novamente, rect_encerrar_jogo = desenhar_game_over()
+    
+    elif estado_jogo_atual == ESTADO_VITORIA:
+        rect_reiniciar, rect_voltar_menu = desenhar_vitoria()
 
 
     pygame.display.flip()
