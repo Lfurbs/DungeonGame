@@ -455,11 +455,11 @@ def desenhar_game_over():
     rect_game_over = texto_game_over.get_rect(center=(LARGURA_TELA // 2, ALTURA_TELA // 2 - 100))
     TELA.blit(texto_game_over, rect_game_over)
 
-    texto_tentar_novamente = fonte_botao.render("Again?", True, COR_TEXTO)
+    texto_tentar_novamente = fonte_botao.render("Recomeçar", True, COR_TEXTO)
     rect_tentar_novamente = pygame.Rect(0, 0, 300, 70)
     rect_tentar_novamente.center = (LARGURA_TELA // 2, ALTURA_TELA // 2 + 20)
 
-    texto_encerrar_jogo = fonte_botao.render("Close game", True, COR_TEXTO)
+    texto_encerrar_jogo = fonte_botao.render("Encerrar", True, COR_TEXTO)
     rect_encerrar_jogo = pygame.Rect(0, 0, 300, 70)
     rect_encerrar_jogo.center = (LARGURA_TELA // 2, ALTURA_TELA // 2 + 120)
 
@@ -1020,9 +1020,9 @@ while True:
 
         fonte = pygame.font.Font(None, 24)
         if em_recarga:
-            texto = f"Charging... {tempo_restante_recarga:.1f}s"
+            texto = f"Carregando... {tempo_restante_recarga:.1f}s"
         else:
-            texto = f"Lantern: {tempo_restante_lanterna:.1f}s"
+            texto = f"Lanterna: {tempo_restante_lanterna:.1f}s"
 
         render_texto = fonte.render(texto, True, (255, 255, 255))
         TELA.blit(render_texto, (barra_x, barra_y + barra_altura + 5))
