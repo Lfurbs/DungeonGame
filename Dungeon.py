@@ -8,6 +8,9 @@ import random
 
 pygame.init()
 
+COR_CHAVE = (255, 255, 0)  # Amarelo
+COR_PORTA = (0, 100, 255)  # Azul
+
 LARGURA_JANELA_INICIAL = 800
 ALTURA_JANELA_INICIAL = 600
 
@@ -34,10 +37,10 @@ labirinto_map = [
     "############################################################",
     "############################################################",
     "##########              #####             ##################",
-    "##      ##              #####             ##################",
+    "##      ##        C     #####             ##################",
     "##      ##              #####             ###########      #",
     "##      ###    ####   #########   ####   ############      #",
-    "##      ###    ####   #########   ####   ############      #",
+    "##      ###    ####P  #########   ####   ############      #",
     "####  #############   #########   ####         ######      #",
     "####  #######                        #######   #######  ####",
     "####  #######                        #######   #######  ####",
@@ -138,8 +141,18 @@ def desenhar_labirinto(offset_x, offset_y, tamanho_celula):
         for x in range(LARGURA_MAPA):
             if not (0 <= y < ALTURA_MAPA and 0 <= x < LARGURA_MAPA):
                 continue
+
             celula = labirinto[y][x]
-            cor = COR_PAREDE if celula == '#' else COR_CAMINHO
+
+            if celula == '#':
+                cor = COR_PAREDE
+            elif celula == 'C':
+                cor = COR_CHAVE
+            elif celula == 'P':
+                cor = COR_PORTA
+            else:
+                cor = COR_CAMINHO
+
             rect = pygame.Rect(
                 x * tamanho_celula - offset_x,
                 y * tamanho_celula - offset_y,
@@ -169,7 +182,16 @@ def desenhar_inimigo(x, y, angulo, offset_x, offset_y, tamanho_inimigo_img, imag
 def pode_mover_celula(cx, cy):
     if not (0 <= cy < ALTURA_MAPA and 0 <= cx < LARGURA_MAPA):
         return False
-    return labirinto[cy][cx] != '#'
+
+    celula = labirinto[cy][cx]
+
+    if celula == '#':
+        return False
+    elif celula == 'P':
+        # Só pode passar se tiver chave
+        return quantidade_chaves > 0
+    return True
+
 
 def pode_mover_pixel(px, py, raio):
     passos = 16
@@ -317,6 +339,9 @@ caminho_fuga = []
 indice_caminho_fuga = 0 
 
 angulo_lanterna = 0.0 
+
+quantidade_chaves = 0
+
 
 # Configurações da lanterna▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂
 tempo_maximo_lanterna = 5   
@@ -781,6 +806,21 @@ while True:
 
             angulo = math.atan2(dy, dx)
 
+            # Coordenadas do jogador no mapa
+            celula_jogador_x, celula_jogador_y = pixel_para_celula(jogador_x, jogador_y)
+
+            # Coletar chave
+            if labirinto[celula_jogador_y][celula_jogador_x] == 'C':
+                labirinto[celula_jogador_y][celula_jogador_x] = ' '
+                quantidade_chaves += 1
+
+            # Usar chave na porta
+            elif labirinto[celula_jogador_y][celula_jogador_x] == 'P':
+                if quantidade_chaves > 0:
+                    labirinto[celula_jogador_y][celula_jogador_x] = ' '
+                    quantidade_chaves -= 1
+
+
         tamanho_celula_zoom = TAMANHO_CELULA_BASE * zoom
         tamanho_jogador_zoom = tamanho_jogador_base * zoom
 
@@ -881,6 +921,12 @@ while True:
 
         render_texto = fonte.render(texto, True, (255, 255, 255))
         TELA.blit(render_texto, (barra_x, barra_y + barra_altura + 5))
+
+        # Texto de chaves na tela
+        texto_chaves = f"Chaves: {quantidade_chaves}"
+        render_chaves = fonte.render(texto_chaves, True, (255, 255, 255))
+        TELA.blit(render_chaves, (barra_x, barra_y + barra_altura + 30))
+
 #▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂
     elif estado_jogo_atual == ESTADO_GAME_OVER:
         rect_tentar_novamente, rect_encerrar_jogo = desenhar_game_over()
